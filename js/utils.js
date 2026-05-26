@@ -115,10 +115,12 @@ export const useWordSort = (props, emit) => {
 // --- ここから下を追加 ---
 
 // 句読点や記号を除去する関数
-export const cleanText = (text) => {
-  return text.replace(/[，。？！、,.\?!]/g, '').trim();
-};
 
+export const cleanText = (text) => {
+  if (!text) return '';
+  // 全角・半角のスペース、句読点、疑問符、感嘆符などをすべて除去
+  return String(text).replace(/[，。？！、,.\?! 　]/g, '').trim();
+};
 // レーベンシュタイン距離（配列同士の比較）
 const levenshteinDistance = (arr1, arr2) => {
   const matrix = [];
