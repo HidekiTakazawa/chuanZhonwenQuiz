@@ -1,4 +1,4 @@
-import { evaluatePronunciation, cleanText, speakText } from './utils.js';
+import { evaluatePronunciation, cleanText, speakText, evaluateXAnswer } from "./utils.js";
 
 // --- 各タイプの評価ロジック ---
 
@@ -24,13 +24,15 @@ const evaluateStandard = (questionData, currentAnswer) => {
   speakText(speech);
   return { isSuccess, comment };
 };
+
+
 // タイプEの評価
 const evaluateE = (questionData, currentAnswer) => {
-  const correctAnswers = questionData[3].split('/');
+  const correctAnswers = questionData[3].split("/");
   const isSuccess = correctAnswers.includes(currentAnswer);
-  const comment = isSuccess ? '好！赞👍' : '错×　再加油！！';
-  const speech = isSuccess ? '好！赞' : '错，再加油';
-  
+  const comment = isSuccess ? "好！赞👍" : "错×　再加油！！";
+  const speech = isSuccess ? "好！赞" : "错，再加油";
+
   speakText(speech);
   return { isSuccess, comment };
 };
@@ -38,53 +40,134 @@ const evaluateE = (questionData, currentAnswer) => {
 // タイプHの評価（音声入力のスコア判定）
 const evaluateH = (questionData, currentAnswer) => {
   if (!currentAnswer) {
-    speakText('未收到音频输入');
-    return { isSuccess: false, comment: '未收到音频输入。' };
+    speakText("未收到音频输入");
+    return { isSuccess: false, comment: "未收到音频输入。" };
   }
-  const targetText = questionData[2].split('/')[0];
+  const targetText = questionData[2].split("/")[0];
   const result = evaluatePronunciation(targetText, currentAnswer);
-  
+
   speakText(result.message); // ★ メッセージ部分を読み上げ
   return {
     isSuccess: result.score >= 80,
-    comment: `得分: ${result.score}分 - ${result.message}`
+    comment: `得分: ${result.score}分 - ${result.message}`,
   };
 };
 
 // タイプLの評価（模範解答とのマッチング）
 const evaluateL = (questionData, currentAnswer) => {
   if (!currentAnswer) {
-    speakText('未收到音频输入');
-    return { isSuccess: false, comment: '未收到音频输入。' };
+    speakText("未收到音频输入");
+    return { isSuccess: false, comment: "未收到音频输入。" };
   }
-  const answersData = questionData.slice(5).filter(w => w !== undefined && w !== null && String(w).trim() !== '');
+  const answersData = questionData
+    .slice(5)
+    .filter((w) => w !== undefined && w !== null && String(w).trim() !== "");
   const cleanSpoken = cleanText(currentAnswer);
 
   for (const data of answersData) {
-    const parts = String(data).split('/');
+    const parts = String(data).split("/");
     const modelAnswer = cleanText(parts[0]);
-    const modelComment = parts[1] || '好！赞👍';
-    const speechComment = parts[1] ? parts[1].replace(/[👍×]/g, '') : '好！赞'; // 絵文字を除去して読み上げ
-   
+    const modelComment = parts[1] || "好！赞👍";
+    const speechComment = parts[1] ? parts[1].replace(/[👍×]/g, "") : "好！赞"; // 絵文字を除去して読み上げ
+
     if (modelAnswer === cleanSpoken) {
       speakText(speechComment); // ★ 音声出力
       return { isSuccess: true, comment: modelComment };
     }
   }
-  
-  speakText('错，再加油');
-  return { isSuccess: false, comment: '错×　再加油！！' };
+
+  speakText("错，再加油");
+  return { isSuccess: false, comment: "错×　再加油！！" };
 };
 
 // タイプMの評価（特殊処理）
 const evaluateM = (questionData, currentAnswer) => {
   if (!currentAnswer) {
+    speakText("未回答");
+    return { isSuccess: false, comment: "未回答。" };
+  }
+
+  const correctAnswers = questionData[2].split("/");
+  const isSuccess = correctAnswers.includes(currentAnswer.split("/")[0]);
+  const comment = isSuccess ? "好！赞👍" : "错×　再加油！！";
+  const speech = isSuccess ? "好！赞" : "错，再加油";
+
+  speakText(speech);
+  return { isSuccess, comment };
+};
+// タイプNの評価（特殊処理）
+const evaluateN = (questionData, currentAnswer) => {
+  if (!currentAnswer) {
+    speakText("未回答");
+    return { isSuccess: false, comment: "未回答。" };
+  }
+
+  const [template, expected] = questionData[2].split("/");
+
+  // '()' を回答で置換し、期待される完成文と一致するか判定
+  const isSuccess = template.replace("()", currentAnswer) === expected;
+
+  const comment = isSuccess ? "好！赞👍" : "错×　再加油！！";
+  const speech = isSuccess ? "好！赞" : "错，再加油";
+
+  speakText(speech);
+  return { isSuccess, comment };
+};
+// タイプOの評価（特殊処理）
+const evaluateO = (questionData, currentAnswer) => {
+  if (!currentAnswer) {
+    speakText("未回答");
+    return { isSuccess: false, comment: "未回答。" };
+  }
+
+  const expected = questionData[5];
+ 
+  const isSuccess =  currentAnswer === expected;
+
+  const comment = isSuccess ? "好！赞👍" : "错×　再加油！！";
+  const speech = isSuccess ? "好！赞" : "错，再加油";
+
+  speakText(speech);
+  return { isSuccess, comment };
+};
+const evaluatePX = () => {
+  const isSuccess = true;
+  const comment = "";
+  return { isSuccess, comment };
+
+};
+// ★ タイプWの評価を追加
+const evaluateW = (questionData, currentAnswer) => {
+  if (!currentAnswer) {
     speakText('未回答');
     return { isSuccess: false, comment: '未回答。' };
   }
- 
-  const correctAnswers = questionData[2].split('/');
-  const isSuccess = correctAnswers.includes(currentAnswer.split('/')[0]);
+  
+  // 補正済みのデータから、1番目（質問文）を除外した残りを正解リストとする
+  const correctAnswers = questionData[2].split('/').slice(1);
+   // ★ 句読点やスペースを無視して比較する（cleanTextを使用）
+  const cleanCurrentAnswer = cleanText(currentAnswer);
+  const isSuccess = correctAnswers.some(ans => cleanText(ans) === cleanCurrentAnswer);
+  const comment = isSuccess ? '好！赞👍' : '错×　再加油！！';
+  const speech = isSuccess ? '好！赞' : '错，再加油';
+  
+  speakText(speech);
+  return { isSuccess, comment };
+};
+// ★ タイプXの評価を追加
+const evaluateX = (questionData, currentAnswer) => {
+  if (!currentAnswer) {
+    speakText('未回答');
+    return { isSuccess: false, comment: '未回答。' };
+  }
+  
+  // 補正済みのデータから、1番目（質問文）を除外した残りを正解リストとする
+  const correctAnswers = questionData[2].split('/').slice(1);
+   // ★ 句読点やスペースを無視して比較する（cleanTextを使用）
+  const cleanCurrentAnswer = cleanText(currentAnswer);
+  const isSuccess = evaluateXAnswer(correctAnswers, cleanCurrentAnswer, questionData);
+  
+  // const isSuccess = correctAnswers.some(ans => cleanText(ans) === cleanCurrentAnswer);
   const comment = isSuccess ? '好！赞👍' : '错×　再加油！！';
   const speech = isSuccess ? '好！赞' : '错，再加油';
   
@@ -92,11 +175,24 @@ const evaluateM = (questionData, currentAnswer) => {
   return { isSuccess, comment };
 };
 
+
 // --- 評価関数のマッピング（辞書） ---
 export const evaluators = {
   DEFAULT: evaluateStandard,
   E: evaluateE,
   H: evaluateH,
   L: evaluateL,
-  M: evaluateM
+  M: evaluateM,
+  N: evaluateN,
+  O: evaluateO,
+  P: evaluateO,
+  Q: evaluateO,
+  R: evaluateO,
+  S: evaluateO,
+  T: evaluateO,
+  W: evaluateW,
+  X: evaluateX,
+  PX: evaluatePX,
+  UX: evaluatePX,
+  V: evaluatePX,
 };
